@@ -1,0 +1,48 @@
+#!/bin/bash
+
+cleanup() {
+    rm -f *.time *.out
+    exit 1
+}
+
+trap cleanup SIGINT
+
+rm -f *.time
+
+for i in 10 100; do
+    if [ -x "./randtrack" ]; then
+	echo -n "Running ./randtrack 1 $i: "
+	/usr/bin/time -f "%e" ./randtrack 1 $i 2> tmp.time | sort > baseline-$i.out
+	TIME=$(cat tmp.time)
+	echo $TIME
+	echo "1 $TIME" >> baseline-$i.time
+	TIME=$(echo "scale=2;$TIME/2" | bc -l)
+	echo "2 $TIME" >> baseline-$i.time
+	TIME=$(echo "scale=2;$TIME/2" | bc -l)
+	echo "4 $TIME" >> baseline-$i.time
+	TIME=$(echo "scale=2;$TIME/2" | bc -l)
+	echo "8 $TIME" >> baseline-$i.time
+    else
+	echo "./randtrack not found. run make."
+	exit 1
+    fi
+
+    # atomic is not in Lab 4. after the material is covered in class,
+    # you can try implementing it 
+    for j in global_lock list_lock element_lock reduction atomic; do
+	for k in 1 2 4 8; do
+	    # check if executable exists or else skip running it
+	    if [ -x "./randtrack_$j" ]; then
+		echo -n "Running ./randtrack_$j $k $i: "
+		/usr/bin/time -f "%e" ./randtrack_$j $k $i 2> tmp.time | sort > $j-$k-$i.out
+		TIME=$(cat tmp.time)
+		echo $TIME
+		echo "$k $TIME" >> $j-$i.time
+	    fi
+	done
+    done
+
+    rm -f tmp.time
+    sum *$i.out
+    
+done

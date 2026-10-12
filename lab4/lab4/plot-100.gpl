@@ -1,0 +1,44 @@
+set terminal pdf enhanced font "Arial,11"
+set output "plot-100.pdf"
+
+set xrange [0:]
+set yrange [0:]
+set xtics (0, 1, 2, 3, 4, 5, 6, 7, 8)
+set xlabel "Nr. of Threads"
+set ylabel "Throughput (1M samples/second)"
+set key left top
+
+plot_cmd = "plot 'baseline-100.time' using 1:(10/$2) with linespoints linestyle 1 ps 0.75 title 'Ideal scaling'"
+
+# Define a function to check if a file exists
+# system() returns the output of the shell command as a string.
+# '+ 0' at the end converts the output "1" or "0" to a numerical value.
+file_exists(file) = system("[ -f '".file."' ] && echo 1 || echo 0") + 0
+
+file1 = 'global_lock-100.time'
+if (file_exists(file1)) {
+    plot_cmd = plot_cmd . ", file1 using 1:(10/$2) with linespoints linestyle 2 ps 0.5 title 'Global lock'"
+}
+
+file2 = 'list_lock-100.time'
+if (file_exists(file2)) {
+    plot_cmd = plot_cmd . ", file2 using 1:(10/$2) with linespoints linestyle 3 ps 0.5 title 'List lock'"
+}
+
+file3 = 'element_lock-100.time'
+if (file_exists(file3)) {
+    plot_cmd = plot_cmd . ", file3 using 1:(10/$2) with linespoints linestyle 4 ps 0.5 title 'Element lock'"
+}
+
+file4 = 'reduction-100.time'
+if (file_exists(file4)) {
+    plot_cmd = plot_cmd . ", file4 using 1:(10/$2) with linespoints linestyle 5 ps 0.5 title 'Reduction'"
+}
+
+# atomic locks are not needed for Lab 4
+file5 = 'atomic-100.time'
+if (file_exists(file5)) {
+    plot_cmd = plot_cmd . ", file5 using 1:(10/$2) with linespoints linestyle 6 ps 0.5 title 'Atomic Lock'"
+}
+
+eval plot_cmd

@@ -1,0 +1,44 @@
+Q1. Why is it important to #ifdef out methods and data structures that aren't used by different versions of randtrack?
+It prevents accidental references to locks that aren't present in the build we're on. In other versions that do not need certain mutexes, we avoid creating and initializing many unused mutexes.
+
+Q2. Can you implement this version without modifying the hash class, or without knowing its internal implementation? Explain.
+List level locking requires locking the specific list  that corresponds to a given key. The hash class API however, cannot tell us how many buckets there are, which list a key belongs to, or give us any way to access/lock individual lists. 
+We can't create one mutex per list or lock the intended list before accesssing it.
+
+Q3. Can you implement this version by solely modifying the hash class methods lookup() and insert()? Explain.
+No, making each of those internally locked doesn't make it atomic. Even if you add locking to lookup and insert, two separate threads can both see "not found" and then simultaneously insert, leading to duplicate nodes
+
+Q4. Can you implement this version by solely adding to the hash class a new method called lookup_and_insert_if_absent()? Explain.
+No, since we still need to protect s->count++ with a lock, or make the method perform the increment to avoid a data race.
+
+Q5. Can you implement this version by solely adding new methods to the hash class called lock_list() and unlock_list()? Explain.
+With only these two methods, the caller has to lock the list at that key before we lookup, hold until after insert, then unlock. Adding the method described above might be less error prone (if we mess up the order)
+
+Q6. What are the pros and cons of this approach?
+Using per-thread tables, each thread updates its own hash, and simple to implement (no locking). However, this will require extra memory (one table per thread), you have to iterate through the tables afterwards then merge them all at the end which is a pain, especially as the size/number of each tables scales up
+
+Q7. When the sampling_interval is 10, what is the overhead for each parallelization approach? Report this number as the ratio of the runtime of the parallel version when it uses one thread to the runtime of the single-threaded randtrack program.
+Baseline: 5.77s
+Global lock: 6.78s; ratio: 1.175
+List lock: 7.62s; ratio: 1.321
+Element lock: 9.13s; ratio = 1.585
+Reduction: 6.03s; ratio: 1.045
+
+Q8. When the sampling_interval is 10, explain how the different approaches compare to each other. If performance gets worse for a certain case, explain why that may have happened.
+Global lock gets worse with more threads because the single lock makes everything sequential (0.85x 1 thread, 0.31x 2 threads, 0.32x 4 threads, 0.25x 8 threads)
+List lock has the opposite affect, it scales the best with more threads as the there is less contention with the large number of locks (0.76x 1 thread, 1.45x 2 threads, 2.29x 4 threads, 4.89x 8 threads)
+Element lock (hand over hand locking) also scales well, but potentially the overhead from per node- extra mutex ops per operation (0.631x 1 thread, 1.023x 2 threads, 1.772x 4 threads, 3.165x 8 threads)
+Reduction lock has a clear trend until 4 threads, and then at 8 threads performance begins to drop off. This may be because after 4 threads, we exceed a threshold because of the larger amount of memory and merging/reduction with more tables (0.96x 1 thread, 1.9x 2 threads, 3.35x 4 threads, 3.21x 8 threads)
+
+Q9. What are the most significant differences between the results when the sampling_interval is 10 versus 100? Can you explain these differences?
+Baseline is now at 25.51s with 100 vs 5.77s with an internval of 10. 
+Since you now have more compute per update, the overhead of locking doesn't matter as much. 
+Global lock outperforms for 2-4 threads but diminishes at 8 threads because of lock contention. (1 thread 1.001×, 2 threads 1.563×, 4 threads 1.486×, 8 threads 0.932×)
+When work per update is higher, the cost of lock contention decreases, and more fine grained locking approaches have a more ideal performance, but global lock still gets bottlenecked when you add more threads.
+List lock still scales the best with a larger amount of threads (1 thread 0.981×, 2 thread 1.892×, 4 thread 3.655×, 8 thread 5.439×)
+Element lock (1 thread 0.916×, 2 threads 1.703×, 4 threads 3.225×, 8 threads 4.406×)
+Reduction lock (1 thread 0.977×, 2 thread 1.941×, 4 thread 3.713×, 8 thread 4.605×)
+
+Q10. Which approach should OptsRus ship? Keep in mind that some customers might be using multi-core machines with more than 8 cores, while others might have fewer cores.
+We should ship list level blocks since it scaled the best, even to 8 threads, and it has a simpler implementation than element level(e.g., 8 threads at sampling=10: 1.18 s vs baseline 5.77 s,  around 4.9× speedup; sampling=100: 4.66 s vs 25.51 s,  around 5.47×). 
+We could also ship reduction if we can guaranteed we'll be at 4 or less threads, but at anymore we're going to be memory/bandwidth limited unless the merging also becomes parallelized 

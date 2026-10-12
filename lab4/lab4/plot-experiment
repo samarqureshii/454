@@ -1,0 +1,6 @@
+#!/bin/bash
+
+# this script plots the output of the run-experiment script.
+gnuplot plot-10.gpl
+gnuplot plot-100.gpl
+

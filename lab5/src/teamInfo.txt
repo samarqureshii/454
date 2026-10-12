@@ -1,0 +1,4 @@
+teamName: team summer
+student1_fullName: Samar Qureshi
+student1_studentNumber: 1009149583
+student1_email: ssamar.qureshi@mail.utoronto.ca

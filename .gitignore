@@ -1,0 +1,37 @@
+# Profiling data
+perf.data
+perf.data.*
+gmon.out
+
+# Build outputs
+*.o
+*.a
+*.so
+a.out
+bin/
+build/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+
+# Compiled executables
+lab3/ece454-lab3/src/mdriver
+lab4/lab4/randtrack
+lab4/lab4/randtrack_*
+!lab4/lab4/randtrack_*.cc
+lab5/src/gol
+
+# Archives
+*.tar
+*.tar.gz
+*.tgz
+*.zip
+
+# Large test images
+lab2/ECE454-Lab2/big.bmp
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+*.swp
